@@ -8,11 +8,11 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.web.client.RestTemplate;
 import ru.practicum.stats.dto.EndpointHitDto;
+import ru.practicum.stats.dto.StatsRequestDto;
 import ru.practicum.stats.dto.ViewStatsDto;
 
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
-import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 
@@ -35,8 +35,8 @@ public class StatsClientImpl implements StatsClient {
     }
 
     @Override
-    public List<ViewStatsDto> getStats(LocalDateTime start, LocalDateTime end, List<String> uris, boolean unique) {
-        String url = buildStatsUrl(start, end, uris, unique);
+    public List<ViewStatsDto> getStats(StatsRequestDto request) {
+        String url = buildStatsUrl(request);
         return restTemplate.exchange(
                 url,
                 HttpMethod.GET,
@@ -46,16 +46,17 @@ public class StatsClientImpl implements StatsClient {
         ).getBody();
     }
 
-    private String buildStatsUrl(LocalDateTime start, LocalDateTime end, List<String> uris, boolean unique) {
+    private String buildStatsUrl(StatsRequestDto request) {
         StringBuilder url = new StringBuilder(serverUrl);
-        url.append("/stats?start=").append(encode(FORMATTER.format(start)));
-        url.append("&end=").append(encode(FORMATTER.format(end)));
+        url.append("/stats?start=").append(encode(FORMATTER.format(request.getStart())));
+        url.append("&end=").append(encode(FORMATTER.format(request.getEnd())));
+        List<String> uris = request.getUris();
         if (uris != null) {
             for (String uri : uris) {
                 url.append("&uris=").append(encode(uri));
             }
         }
-        url.append("&unique=").append(unique);
+        url.append("&unique=").append(request.isUnique());
         return url.toString();
     }
 

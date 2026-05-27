@@ -16,11 +16,10 @@ import java.util.List;
 @RequiredArgsConstructor
 public class StatsService {
     private final EndpointHitRepository repository;
-    private final StatsMapper mapper;
 
     @Transactional
     public void saveHit(EndpointHitDto dto) {
-        repository.save(mapper.toEntity(dto));
+        repository.save(StatsMapper.toEntity(dto));
     }
 
     @Transactional(readOnly = true)
@@ -29,6 +28,6 @@ public class StatsService {
         List<ViewStatsProjection> stats = unique
                 ? repository.findUniqueStats(start, end, urisParam)
                 : repository.findStats(start, end, urisParam);
-        return stats.stream().map(mapper::toDto).toList();
+        return stats.stream().map(StatsMapper::toDto).toList();
     }
 }
