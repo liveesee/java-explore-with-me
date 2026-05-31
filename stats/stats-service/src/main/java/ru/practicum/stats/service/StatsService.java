@@ -18,8 +18,8 @@ public class StatsService {
     private final EndpointHitRepository repository;
 
     @Transactional
-    public void saveHit(EndpointHitDto dto) {
-        repository.save(StatsMapper.toEntity(dto));
+    public void saveHit(EndpointHitDto dto, LocalDateTime timestamp) {
+        repository.save(StatsMapper.toEntity(dto, timestamp));
     }
 
     @Transactional(readOnly = true)
