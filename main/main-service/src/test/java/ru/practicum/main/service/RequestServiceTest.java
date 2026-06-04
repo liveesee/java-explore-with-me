@@ -111,6 +111,66 @@ class RequestServiceTest {
     }
 
     @Test
+    void createRequest_afterCancel_reusesRequest() {
+        Event event = event(0, true);
+        ParticipationRequest canceled = ParticipationRequest.builder()
+                .id(50L)
+                .status(RequestStatus.CANCELED)
+                .created(LocalDateTime.now().minusDays(1))
+                .event(event)
+                .requester(User.builder().id(20L).name("U").email("u@t.c").build())
+                .build();
+        when(userService.getUserOrThrow(20L)).thenReturn(canceled.getRequester());
+        when(eventRepository.findById(1L)).thenReturn(Optional.of(event));
+        when(requestRepository.findByEventIdAndRequesterId(1L, 20L)).thenReturn(Optional.of(canceled));
+        when(confirmedRequestsService.getConfirmedCount(1L)).thenReturn(0L);
+        when(requestRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        assertEquals("PENDING", requestService.createRequest(20L, 1L).getStatus());
+    }
+
+    @Test
+    void cancelRequest_whenNotPending_throwsConflict() {
+        ParticipationRequest request = ParticipationRequest.builder()
+                .id(1L)
+                .requester(User.builder().id(20L).build())
+                .event(event(0, true))
+                .status(RequestStatus.CONFIRMED)
+                .created(LocalDateTime.now())
+                .build();
+        when(requestRepository.findById(1L)).thenReturn(Optional.of(request));
+
+        assertThrows(ConflictException.class, () -> requestService.cancelRequest(20L, 1L));
+    }
+
+    @Test
+    void changeRequestStatus_whenRequestIdsNull_throwsBadRequest() {
+        when(eventService.getUserEventOrThrow(10L, 1L)).thenReturn(event(0, true));
+
+        assertThrows(BadRequestException.class, () -> requestService.changeRequestStatus(
+                10L, 1L, EventRequestStatusUpdateRequest.builder().status("CONFIRMED").build()));
+    }
+
+    @Test
+    void changeRequestStatus_whenRequestFromOtherEvent_throwsNotFound() {
+        Event event = event(0, true);
+        Event otherEvent = Event.builder().id(99L).state(EventState.PUBLISHED).participantLimit(0)
+                .requestModeration(true).initiator(User.builder().id(10L).build()).build();
+        ParticipationRequest request = ParticipationRequest.builder()
+                .id(100L)
+                .status(RequestStatus.PENDING)
+                .created(LocalDateTime.now())
+                .event(otherEvent)
+                .requester(User.builder().id(20L).build())
+                .build();
+        when(eventService.getUserEventOrThrow(10L, 1L)).thenReturn(event);
+        when(requestRepository.findAllById(List.of(100L))).thenReturn(List.of(request));
+
+        assertThrows(NotFoundException.class, () -> requestService.changeRequestStatus(
+                10L, 1L, updateRequest("CONFIRMED", List.of(100L))));
+    }
+
+    @Test
     void cancelRequest_whenNotOwner_throwsNotFound() {
         ParticipationRequest request = ParticipationRequest.builder()
                 .id(1L)

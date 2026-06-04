@@ -6,9 +6,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import ru.practicum.main.dto.NewUserRequest;
 import ru.practicum.main.dto.UserDto;
+import ru.practicum.main.exception.ConflictException;
 import ru.practicum.main.exception.NotFoundException;
 import ru.practicum.main.mapper.UserMapper;
 import ru.practicum.main.model.User;
+import ru.practicum.main.repository.EventRepository;
+import ru.practicum.main.repository.ParticipationRequestRepository;
 import ru.practicum.main.repository.UserRepository;
 import ru.practicum.main.util.PageUtil;
 
@@ -19,6 +22,8 @@ import java.util.List;
 @Transactional(readOnly = true)
 public class UserService {
     private final UserRepository userRepository;
+    private final EventRepository eventRepository;
+    private final ParticipationRequestRepository requestRepository;
 
     @Transactional
     public UserDto create(NewUserRequest request) {
@@ -41,6 +46,9 @@ public class UserService {
     public void delete(Long userId) {
         if (!userRepository.existsById(userId)) {
             throw new NotFoundException("User with id=" + userId + " was not found");
+        }
+        if (eventRepository.existsByInitiatorId(userId) || requestRepository.existsByRequesterId(userId)) {
+            throw new ConflictException("The user cannot be removed");
         }
         userRepository.deleteById(userId);
     }

@@ -8,8 +8,11 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import ru.practicum.main.dto.NewUserRequest;
+import ru.practicum.main.exception.ConflictException;
 import ru.practicum.main.exception.NotFoundException;
 import ru.practicum.main.model.User;
+import ru.practicum.main.repository.EventRepository;
+import ru.practicum.main.repository.ParticipationRequestRepository;
 import ru.practicum.main.repository.UserRepository;
 
 import java.util.List;
@@ -25,6 +28,10 @@ class UserServiceTest {
 
     @Mock
     private UserRepository userRepository;
+    @Mock
+    private EventRepository eventRepository;
+    @Mock
+    private ParticipationRequestRepository requestRepository;
 
     @InjectMocks
     private UserService userService;
@@ -50,6 +57,14 @@ class UserServiceTest {
     void delete_whenUserNotFound_throwsNotFound() {
         when(userRepository.existsById(5L)).thenReturn(false);
         assertThrows(NotFoundException.class, () -> userService.delete(5L));
+    }
+
+    @Test
+    void delete_whenUserHasEvents_throwsConflict() {
+        when(userRepository.existsById(5L)).thenReturn(true);
+        when(eventRepository.existsByInitiatorId(5L)).thenReturn(true);
+
+        assertThrows(ConflictException.class, () -> userService.delete(5L));
     }
 
     @Test

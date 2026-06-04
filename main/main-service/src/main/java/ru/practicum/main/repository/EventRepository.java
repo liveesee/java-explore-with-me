@@ -13,6 +13,8 @@ import java.util.Optional;
 public interface EventRepository extends JpaRepository<Event, Long>, JpaSpecificationExecutor<Event> {
     long countByCategoryId(Long categoryId);
 
+    boolean existsByInitiatorId(Long initiatorId);
+
     @Override
     @EntityGraph(attributePaths = {"category", "initiator"})
     Optional<Event> findById(Long id);

@@ -192,6 +192,7 @@ public class EventService {
         if (dto.getStateAction() != null) {
             UserStateAction action = EnumUtil.parse(UserStateAction.class, dto.getStateAction());
             if (action == UserStateAction.SEND_TO_REVIEW) {
+                DateTimeUtil.validateEventDateForUser(event.getEventDate());
                 event.setState(EventState.PENDING);
             } else if (action == UserStateAction.CANCEL_REVIEW) {
                 event.setState(EventState.CANCELED);
@@ -207,8 +208,10 @@ public class EventService {
                     throw new ForbiddenOperationException(
                             "Cannot publish the event because it's not in the right state: " + event.getState());
                 }
+                LocalDateTime publishedOn = LocalDateTime.now();
+                DateTimeUtil.validateEventDateForAdmin(event.getEventDate(), publishedOn);
                 event.setState(EventState.PUBLISHED);
-                event.setPublishedOn(LocalDateTime.now());
+                event.setPublishedOn(publishedOn);
             } else if (action == AdminStateAction.REJECT_EVENT) {
                 if (event.getState() == EventState.PUBLISHED) {
                     throw new ForbiddenOperationException(

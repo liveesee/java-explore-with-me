@@ -88,6 +88,14 @@ class CompilationServiceTest {
     }
 
     @Test
+    void create_whenEventMissing_throwsNotFound() {
+        NewCompilationDto dto = NewCompilationDto.builder().title("Best").events(Set.of(99L)).build();
+        when(eventService.getEventsByIds(List.of(99L))).thenReturn(List.of());
+
+        assertThrows(NotFoundException.class, () -> compilationService.create(dto));
+    }
+
+    @Test
     void update_changesFields() {
         Compilation compilation = Compilation.builder().id(1L).title("Old").pinned(false).build();
         Event event = buildEvent();

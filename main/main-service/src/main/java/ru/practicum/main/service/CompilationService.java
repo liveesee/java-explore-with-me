@@ -91,7 +91,12 @@ public class CompilationService {
         if (eventIds == null || eventIds.isEmpty()) {
             return new HashSet<>();
         }
-        return new HashSet<>(eventService.getEventsByIds(eventIds.stream().toList()));
+        List<Long> ids = eventIds.stream().toList();
+        List<Event> events = eventService.getEventsByIds(ids);
+        if (events.size() != ids.size()) {
+            throw new NotFoundException("Event was not found");
+        }
+        return new HashSet<>(events);
     }
 
     private CompilationDto toDto(Compilation compilation, boolean publishedOnly) {

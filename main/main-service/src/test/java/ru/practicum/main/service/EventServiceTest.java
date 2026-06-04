@@ -112,6 +112,16 @@ class EventServiceTest {
     }
 
     @Test
+    void updateAdminEvent_publishWithEventDateTooSoon_throwsForbidden() {
+        Event event = buildEvent(10L, EventState.PENDING, null);
+        event.setEventDate(LocalDateTime.now().plusMinutes(30));
+        when(eventRepository.findById(10L)).thenReturn(Optional.of(event));
+
+        assertThrows(ForbiddenOperationException.class, () -> eventService.updateAdminEvent(10L,
+                UpdateEventAdminRequest.builder().stateAction(AdminStateAction.PUBLISH_EVENT.name()).build()));
+    }
+
+    @Test
     void updateAdminEvent_rejectPublished_throwsForbidden() {
         Event event = buildEvent(10L, EventState.PUBLISHED, LocalDateTime.now());
         when(eventRepository.findById(10L)).thenReturn(Optional.of(event));
