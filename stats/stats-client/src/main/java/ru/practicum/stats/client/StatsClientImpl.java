@@ -7,12 +7,11 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.util.UriComponentsBuilder;
 import ru.practicum.stats.dto.EndpointHitDto;
 import ru.practicum.stats.dto.StatsRequestDto;
 import ru.practicum.stats.dto.ViewStatsDto;
 
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 
@@ -47,20 +46,16 @@ public class StatsClientImpl implements StatsClient {
     }
 
     private String buildStatsUrl(StatsRequestDto request) {
-        StringBuilder url = new StringBuilder(serverUrl);
-        url.append("/stats?start=").append(encode(FORMATTER.format(request.getStart())));
-        url.append("&end=").append(encode(FORMATTER.format(request.getEnd())));
+        UriComponentsBuilder builder = UriComponentsBuilder.fromHttpUrl(serverUrl + "/stats")
+                .queryParam("start", FORMATTER.format(request.getStart()))
+                .queryParam("end", FORMATTER.format(request.getEnd()))
+                .queryParam("unique", request.isUnique());
         List<String> uris = request.getUris();
         if (uris != null) {
             for (String uri : uris) {
-                url.append("&uris=").append(encode(uri));
+                builder.queryParam("uris", uri);
             }
         }
-        url.append("&unique=").append(request.isUnique());
-        return url.toString();
-    }
-
-    private String encode(String value) {
-        return URLEncoder.encode(value, StandardCharsets.UTF_8);
+        return builder.encode().build().toUriString();
     }
 }

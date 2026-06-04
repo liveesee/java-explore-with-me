@@ -26,11 +26,25 @@ import java.util.stream.Collectors;
 public class StatsService {
     private static final String APP_NAME = "ewm-main-service";
     private static final LocalDateTime STATS_START = LocalDateTime.of(2000, 1, 1, 0, 0);
+    private static final LocalDateTime STATS_END = LocalDateTime.of(2035, 5, 5, 0, 0);
 
     private final StatsClient statsClient;
 
     public void hit(String uri) {
-        hit(uri, LocalDateTime.now());
+        hit(uri, resolveIpFromContext());
+    }
+
+    public void hit(String uri, HttpServletRequest request) {
+        hit(uri, resolveIp(request));
+    }
+
+    public void hit(String uri, String ip) {
+        statsClient.hit(EndpointHitDto.builder()
+                .app(APP_NAME)
+                .uri(uri)
+                .ip(ip)
+                .timestamp(DateTimeUtil.format(LocalDateTime.now()))
+                .build());
     }
 
     public Map<Long, Long> getViews(Collection<Long> eventIds) {
@@ -42,12 +56,20 @@ public class StatsService {
                 .collect(Collectors.toList());
         List<ViewStatsDto> stats;
         try {
-            stats = statsClient.getStats(STATS_START, LocalDateTime.now().plusYears(1), uris, true);
+            stats = statsClient.getStats(STATS_START, STATS_END, uris, true);
         } catch (RestClientException exception) {
             log.warn("Failed to get views for events {}", eventIds, exception);
             return Collections.emptyMap();
         }
-        if (stats == null) {
+        return mapViews(stats);
+    }
+
+    public Long getView(Long eventId) {
+        return getViews(List.of(eventId)).getOrDefault(eventId, 0L);
+    }
+
+    private Map<Long, Long> mapViews(List<ViewStatsDto> stats) {
+        if (stats == null || stats.isEmpty()) {
             return Collections.emptyMap();
         }
         Map<Long, Long> views = new HashMap<>();
@@ -58,54 +80,26 @@ public class StatsService {
         return views;
     }
 
-    public Long getView(Long eventId) {
-        return getViews(List.of(eventId)).getOrDefault(eventId, 0L);
-    }
-
-    public Long getViewsAfterHit(Long eventId) {
-        String uri = "/events/" + eventId;
-        LocalDateTime timestamp = LocalDateTime.now();
-        hit(uri, timestamp);
-        return getViewForUri(uri, timestamp);
-    }
-
-    private void hit(String uri, LocalDateTime timestamp) {
-        try {
-            statsClient.hit(EndpointHitDto.builder()
-                    .app(APP_NAME)
-                    .uri(uri)
-                    .ip(getClientIp())
-                    .timestamp(DateTimeUtil.format(timestamp))
-                    .build());
-        } catch (RestClientException exception) {
-            log.warn("Failed to save hit for uri={}", uri, exception);
-        }
-    }
-
-    private Long getViewForUri(String uri, LocalDateTime hitTime) {
-        try {
-            List<ViewStatsDto> stats = statsClient.getStats(
-                    STATS_START, hitTime.plusSeconds(1), List.of(uri), true);
-            if (stats == null || stats.isEmpty()) {
-                return 0L;
-            }
-            return stats.get(0).getHits();
-        } catch (RestClientException exception) {
-            log.warn("Failed to get views for uri={}", uri, exception);
-            return 0L;
-        }
-    }
-
-    private String getClientIp() {
+    private String resolveIpFromContext() {
         ServletRequestAttributes attributes =
                 (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
         if (attributes == null) {
-            return "0.0.0.0";
+            return "127.0.0.1";
         }
-        HttpServletRequest request = attributes.getRequest();
+        return resolveIp(attributes.getRequest());
+    }
+
+    static String resolveIp(HttpServletRequest request) {
+        if (request == null) {
+            return "127.0.0.1";
+        }
         String forwarded = request.getHeader("X-Forwarded-For");
         if (forwarded != null && !forwarded.isBlank()) {
             return forwarded.split(",")[0].trim();
+        }
+        String realIp = request.getHeader("X-Real-IP");
+        if (realIp != null && !realIp.isBlank()) {
+            return realIp.trim();
         }
         return request.getRemoteAddr();
     }

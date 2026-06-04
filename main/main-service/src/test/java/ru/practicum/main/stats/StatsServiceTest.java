@@ -58,11 +58,8 @@ class StatsServiceTest {
     }
 
     @Test
-    void getViewsAfterHit_returnsHitsFromStats() {
-        ViewStatsDto stat = ViewStatsDto.builder().uri("/events/5").hits(3L).build();
-        when(statsClient.getStats(any(), any(), anyList(), eq(true))).thenReturn(List.of(stat));
-
-        assertEquals(3L, statsService.getViewsAfterHit(5L));
+    void hit_withIp_sendsEndpointToClient() {
+        statsService.hit("/events/1", "10.0.0.1");
         verify(statsClient).hit(any(EndpointHitDto.class));
     }
 }
