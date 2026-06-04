@@ -5,6 +5,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 import ru.practicum.main.dto.CategoryDto;
 import ru.practicum.main.dto.NewCategoryDto;
 import ru.practicum.main.exception.ConflictException;
@@ -18,6 +20,7 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -67,10 +70,10 @@ class CategoryServiceTest {
     }
 
     @Test
-    void getAll_returnsAllCategories() {
-        when(categoryRepository.findAll()).thenReturn(List.of(
-                Category.builder().id(1L).name("A").build()));
-        assertEquals(1, categoryService.getAll().size());
+    void getAll_returnsPagedCategories() {
+        when(categoryRepository.findAll(any(Pageable.class))).thenReturn(new PageImpl<>(List.of(
+                Category.builder().id(1L).name("A").build())));
+        assertEquals(1, categoryService.getAll(0, 10).size());
     }
 
     @Test

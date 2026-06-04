@@ -1,8 +1,10 @@
 package ru.practicum.main.service;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import ru.practicum.main.util.PageUtil;
 import ru.practicum.main.dto.CategoryDto;
 import ru.practicum.main.dto.NewCategoryDto;
 import ru.practicum.main.exception.ConflictException;
@@ -42,8 +44,9 @@ public class CategoryService {
         categoryRepository.delete(category);
     }
 
-    public List<CategoryDto> getAll() {
-        return categoryRepository.findAll().stream().map(CategoryMapper::toDto).toList();
+    public List<CategoryDto> getAll(int from, int size) {
+        Pageable pageable = PageUtil.createPageable(from, size);
+        return categoryRepository.findAll(pageable).stream().map(CategoryMapper::toDto).toList();
     }
 
     public CategoryDto getById(Long catId) {

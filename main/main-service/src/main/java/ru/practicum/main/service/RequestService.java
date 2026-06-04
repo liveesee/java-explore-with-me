@@ -8,6 +8,7 @@ import ru.practicum.main.dto.EventRequestStatusUpdateResult;
 import ru.practicum.main.dto.ParticipationRequestDto;
 import ru.practicum.main.exception.BadRequestException;
 import ru.practicum.main.exception.ConflictException;
+import ru.practicum.main.exception.ForbiddenOperationException;
 import ru.practicum.main.exception.NotFoundException;
 import ru.practicum.main.mapper.RequestMapper;
 import ru.practicum.main.model.Event;
@@ -21,10 +22,8 @@ import ru.practicum.main.repository.ParticipationRequestRepository;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -101,9 +100,15 @@ public class RequestService {
         }
         List<Long> requestIds = dto.getRequestIds();
         if (requestIds == null || requestIds.isEmpty()) {
-            throw new BadRequestException("Incorrectly made request.");
+            return EventRequestStatusUpdateResult.builder()
+                    .confirmedRequests(List.of())
+                    .rejectedRequests(List.of())
+                    .build();
         }
         RequestStatus newStatus = EnumUtil.parse(RequestStatus.class, dto.getStatus());
+        if (newStatus != RequestStatus.CONFIRMED && newStatus != RequestStatus.REJECTED) {
+            throw new BadRequestException("Incorrectly made request.");
+        }
         List<ParticipationRequest> requests = loadRequestsForEvent(eventId, requestIds);
         List<ParticipationRequestDto> confirmed = new ArrayList<>();
         List<ParticipationRequestDto> rejected = new ArrayList<>();
@@ -143,17 +148,13 @@ public class RequestService {
             throw new NotFoundException("Request with id=" + requestId + " was not found");
         }
         if (request.getStatus() != RequestStatus.PENDING) {
-            throw new ConflictException("Only pending requests can be canceled");
+            throw new ForbiddenOperationException("Only pending requests can be canceled");
         }
         request.setStatus(RequestStatus.CANCELED);
         return RequestMapper.toDto(requestRepository.save(request));
     }
 
     private List<ParticipationRequest> loadRequestsForEvent(Long eventId, List<Long> requestIds) {
-        Set<Long> uniqueIds = new HashSet<>(requestIds);
-        if (uniqueIds.size() != requestIds.size()) {
-            throw new BadRequestException("Incorrectly made request.");
-        }
         List<ParticipationRequest> requests = requestRepository.findAllById(requestIds);
         if (requests.size() != requestIds.size()) {
             throw new NotFoundException("Request was not found");

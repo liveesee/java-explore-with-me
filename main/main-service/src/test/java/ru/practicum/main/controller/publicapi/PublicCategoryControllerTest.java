@@ -26,7 +26,7 @@ class PublicCategoryControllerTest {
 
     @Test
     void getCategories_returnsList() throws Exception {
-        when(categoryService.getAll()).thenReturn(List.of(CategoryDto.builder().id(1L).name("Music").build()));
+        when(categoryService.getAll(0, 10)).thenReturn(List.of(CategoryDto.builder().id(1L).name("Music").build()));
 
         mockMvc.perform(get("/categories"))
                 .andExpect(status().isOk())

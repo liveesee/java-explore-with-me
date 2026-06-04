@@ -2,7 +2,9 @@ package ru.practicum.main.stats;
 
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestClientException;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 import ru.practicum.stats.client.StatsClient;
@@ -18,6 +20,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class StatsService {
@@ -27,12 +30,16 @@ public class StatsService {
     private final StatsClient statsClient;
 
     public void hit(String uri) {
-        statsClient.hit(EndpointHitDto.builder()
-                .app(APP_NAME)
-                .uri(uri)
-                .ip(getClientIp())
-                .timestamp(DateTimeUtil.format(LocalDateTime.now()))
-                .build());
+        try {
+            statsClient.hit(EndpointHitDto.builder()
+                    .app(APP_NAME)
+                    .uri(uri)
+                    .ip(getClientIp())
+                    .timestamp(DateTimeUtil.format(LocalDateTime.now()))
+                    .build());
+        } catch (RestClientException exception) {
+            log.warn("Failed to save hit for uri={}", uri, exception);
+        }
     }
 
     public Map<Long, Long> getViews(Collection<Long> eventIds) {
@@ -42,7 +49,16 @@ public class StatsService {
         List<String> uris = eventIds.stream()
                 .map(id -> "/events/" + id)
                 .collect(Collectors.toList());
-        List<ViewStatsDto> stats = statsClient.getStats(STATS_START, LocalDateTime.now().plusYears(1), uris, true);
+        List<ViewStatsDto> stats;
+        try {
+            stats = statsClient.getStats(STATS_START, LocalDateTime.now().plusYears(1), uris, true);
+        } catch (RestClientException exception) {
+            log.warn("Failed to get views for events {}", eventIds, exception);
+            return Collections.emptyMap();
+        }
+        if (stats == null) {
+            return Collections.emptyMap();
+        }
         Map<Long, Long> views = new HashMap<>();
         for (ViewStatsDto stat : stats) {
             Long eventId = Long.parseLong(stat.getUri().substring("/events/".length()));

@@ -12,6 +12,7 @@ import ru.practicum.main.dto.EventShortDto;
 import ru.practicum.main.dto.NewEventDto;
 import ru.practicum.main.dto.UpdateEventAdminRequest;
 import ru.practicum.main.dto.UpdateEventUserRequest;
+import ru.practicum.main.exception.BadRequestException;
 import ru.practicum.main.exception.ForbiddenOperationException;
 import ru.practicum.main.exception.NotFoundException;
 import ru.practicum.main.mapper.EventMapper;
@@ -122,6 +123,9 @@ public class EventService {
                                                EventSort sort, int from, int size) {
         LocalDateTime start = rangeStart != null ? DateTimeUtil.parse(rangeStart) : null;
         LocalDateTime end = rangeEnd != null ? DateTimeUtil.parse(rangeEnd) : null;
+        if (start != null && end != null && start.isAfter(end)) {
+            throw new BadRequestException("Range end must be after range start");
+        }
         Specification<Event> spec = EventSpecifications.publicFilter(text, categories, paid, start, end, onlyAvailable);
 
         if (sort == EventSort.VIEWS) {

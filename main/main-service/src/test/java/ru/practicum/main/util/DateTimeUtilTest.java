@@ -2,6 +2,7 @@ package ru.practicum.main.util;
 
 import org.junit.jupiter.api.Test;
 import ru.practicum.main.exception.BadRequestException;
+import ru.practicum.main.exception.BadRequestException;
 import ru.practicum.main.exception.ForbiddenOperationException;
 
 import java.time.LocalDateTime;
@@ -35,9 +36,9 @@ class DateTimeUtilTest {
     }
 
     @Test
-    void validateEventDateForUser_tooSoon_throwsForbidden() {
+    void validateEventDateForUser_tooSoon_throwsBadRequest() {
         LocalDateTime soon = LocalDateTime.now().plusHours(1);
-        assertThrows(ForbiddenOperationException.class,
+        assertThrows(BadRequestException.class,
                 () -> DateTimeUtil.validateEventDateForUser(soon));
     }
 

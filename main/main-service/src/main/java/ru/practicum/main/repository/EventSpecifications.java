@@ -34,6 +34,9 @@ public final class EventSpecifications {
             if (rangeEnd != null) {
                 predicates.add(cb.lessThanOrEqualTo(root.get("eventDate"), rangeEnd));
             }
+            if (predicates.isEmpty()) {
+                return cb.conjunction();
+            }
             return cb.and(predicates.toArray(new Predicate[0]));
         };
     }

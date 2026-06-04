@@ -9,6 +9,7 @@ import ru.practicum.main.dto.EventRequestStatusUpdateRequest;
 import ru.practicum.main.dto.EventRequestStatusUpdateResult;
 import ru.practicum.main.exception.BadRequestException;
 import ru.practicum.main.exception.ConflictException;
+import ru.practicum.main.exception.ForbiddenOperationException;
 import ru.practicum.main.exception.NotFoundException;
 import ru.practicum.main.model.Event;
 import ru.practicum.main.model.EventState;
@@ -130,7 +131,7 @@ class RequestServiceTest {
     }
 
     @Test
-    void cancelRequest_whenNotPending_throwsConflict() {
+    void cancelRequest_whenNotPending_throwsForbidden() {
         ParticipationRequest request = ParticipationRequest.builder()
                 .id(1L)
                 .requester(User.builder().id(20L).build())
@@ -140,15 +141,17 @@ class RequestServiceTest {
                 .build();
         when(requestRepository.findById(1L)).thenReturn(Optional.of(request));
 
-        assertThrows(ConflictException.class, () -> requestService.cancelRequest(20L, 1L));
+        assertThrows(ForbiddenOperationException.class, () -> requestService.cancelRequest(20L, 1L));
     }
 
     @Test
-    void changeRequestStatus_whenRequestIdsNull_throwsBadRequest() {
+    void changeRequestStatus_whenRequestIdsEmpty_returnsEmptyResult() {
         when(eventService.getUserEventOrThrow(10L, 1L)).thenReturn(event(0, true));
 
-        assertThrows(BadRequestException.class, () -> requestService.changeRequestStatus(
-                10L, 1L, EventRequestStatusUpdateRequest.builder().status("CONFIRMED").build()));
+        EventRequestStatusUpdateResult result = requestService.changeRequestStatus(
+                10L, 1L, EventRequestStatusUpdateRequest.builder().status("CONFIRMED").build());
+
+        assertEquals(0, result.getConfirmedRequests().size());
     }
 
     @Test
