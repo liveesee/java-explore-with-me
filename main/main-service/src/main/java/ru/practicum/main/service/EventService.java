@@ -235,6 +235,7 @@ public class EventService {
         }
         if (dto.getEventDate() != null) {
             LocalDateTime eventDate = DateTimeUtil.parse(dto.getEventDate());
+            DateTimeUtil.validateEventDateNotInPast(eventDate);
             DateTimeUtil.validateEventDateForAdmin(eventDate, event.getPublishedOn());
             event.setEventDate(eventDate);
         }

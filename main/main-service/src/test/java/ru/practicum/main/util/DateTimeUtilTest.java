@@ -36,6 +36,12 @@ class DateTimeUtilTest {
     }
 
     @Test
+    void validateEventDateNotInPast_pastDate_throwsBadRequest() {
+        LocalDateTime past = LocalDateTime.now().minusDays(1);
+        assertThrows(BadRequestException.class, () -> DateTimeUtil.validateEventDateNotInPast(past));
+    }
+
+    @Test
     void validateEventDateForUser_tooSoon_throwsBadRequest() {
         LocalDateTime soon = LocalDateTime.now().plusHours(1);
         assertThrows(BadRequestException.class,

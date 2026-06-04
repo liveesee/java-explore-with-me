@@ -9,7 +9,6 @@ import ru.practicum.main.dto.EventRequestStatusUpdateRequest;
 import ru.practicum.main.dto.EventRequestStatusUpdateResult;
 import ru.practicum.main.exception.BadRequestException;
 import ru.practicum.main.exception.ConflictException;
-import ru.practicum.main.exception.ForbiddenOperationException;
 import ru.practicum.main.exception.NotFoundException;
 import ru.practicum.main.model.Event;
 import ru.practicum.main.model.EventState;
@@ -113,7 +112,7 @@ class RequestServiceTest {
 
     @Test
     void createRequest_afterCancel_reusesRequest() {
-        Event event = event(0, true);
+        Event event = event(10, true);
         ParticipationRequest canceled = ParticipationRequest.builder()
                 .id(50L)
                 .status(RequestStatus.CANCELED)
@@ -131,7 +130,19 @@ class RequestServiceTest {
     }
 
     @Test
-    void cancelRequest_whenNotPending_throwsForbidden() {
+    void changeRequestStatus_whenLimitReached_throwsConflict() {
+        Event event = event(1, true);
+        ParticipationRequest request = pendingRequest(event);
+        when(eventService.getUserEventOrThrow(10L, 1L)).thenReturn(event);
+        when(requestRepository.findAllById(List.of(100L))).thenReturn(List.of(request));
+        when(confirmedRequestsService.getConfirmedCount(1L)).thenReturn(1L);
+
+        assertThrows(ConflictException.class, () -> requestService.changeRequestStatus(
+                10L, 1L, updateRequest("CONFIRMED", List.of(100L))));
+    }
+
+    @Test
+    void cancelRequest_whenNotPending_throwsConflict() {
         ParticipationRequest request = ParticipationRequest.builder()
                 .id(1L)
                 .requester(User.builder().id(20L).build())
@@ -141,7 +152,23 @@ class RequestServiceTest {
                 .build();
         when(requestRepository.findById(1L)).thenReturn(Optional.of(request));
 
-        assertThrows(ForbiddenOperationException.class, () -> requestService.cancelRequest(20L, 1L));
+        assertThrows(ConflictException.class, () -> requestService.cancelRequest(20L, 1L));
+    }
+
+    @Test
+    void createRequest_withZeroParticipantLimit_autoConfirms() {
+        Event event = event(0, true);
+        when(userService.getUserOrThrow(20L)).thenReturn(User.builder().id(20L).name("U").email("u@t.c").build());
+        when(eventRepository.findById(1L)).thenReturn(Optional.of(event));
+        when(requestRepository.findByEventIdAndRequesterId(1L, 20L)).thenReturn(Optional.empty());
+        when(confirmedRequestsService.getConfirmedCount(1L)).thenReturn(0L);
+        when(requestRepository.save(any())).thenAnswer(invocation -> {
+            ParticipationRequest saved = invocation.getArgument(0);
+            saved.setId(100L);
+            return saved;
+        });
+
+        assertEquals("CONFIRMED", requestService.createRequest(20L, 1L).getStatus());
     }
 
     @Test

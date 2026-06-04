@@ -39,8 +39,7 @@ public class PublicEventController {
 
     @GetMapping("/{id}")
     public EventFullDto getEvent(@PathVariable Long id) {
-        EventFullDto event = eventService.getPublicEvent(id);
         statsService.hit("/events/" + id);
-        return event;
+        return eventService.getPublicEvent(id);
     }
 }

@@ -8,7 +8,6 @@ import ru.practicum.main.dto.EventRequestStatusUpdateResult;
 import ru.practicum.main.dto.ParticipationRequestDto;
 import ru.practicum.main.exception.BadRequestException;
 import ru.practicum.main.exception.ConflictException;
-import ru.practicum.main.exception.ForbiddenOperationException;
 import ru.practicum.main.exception.NotFoundException;
 import ru.practicum.main.mapper.RequestMapper;
 import ru.practicum.main.model.Event;
@@ -57,9 +56,7 @@ public class RequestService {
         if (event.getParticipantLimit() > 0 && confirmed >= event.getParticipantLimit()) {
             throw new ConflictException("The participant limit has been reached");
         }
-        RequestStatus status = Boolean.FALSE.equals(event.getRequestModeration())
-                ? RequestStatus.CONFIRMED
-                : RequestStatus.PENDING;
+        RequestStatus status = resolveInitialRequestStatus(event);
 
         Optional<ParticipationRequest> existing = requestRepository.findByEventIdAndRequesterId(eventId, userId);
         if (existing.isPresent()) {
@@ -114,18 +111,20 @@ public class RequestService {
         List<ParticipationRequestDto> rejected = new ArrayList<>();
 
         for (ParticipationRequest request : requests) {
-            if (request.getStatus() != RequestStatus.PENDING) {
-                throw new BadRequestException("Request must have status PENDING");
-            }
             if (newStatus == RequestStatus.CONFIRMED) {
                 long confirmedCount = confirmedRequestsService.getConfirmedCount(eventId);
                 if (event.getParticipantLimit() > 0 && confirmedCount >= event.getParticipantLimit()) {
                     throw new ConflictException("The participant limit has been reached");
                 }
+            }
+            if (request.getStatus() != RequestStatus.PENDING) {
+                throw new BadRequestException("Request must have status PENDING");
+            }
+            if (newStatus == RequestStatus.CONFIRMED) {
                 request.setStatus(RequestStatus.CONFIRMED);
                 confirmed.add(RequestMapper.toDto(requestRepository.save(request)));
-                confirmedCount++;
-                if (event.getParticipantLimit() > 0 && confirmedCount >= event.getParticipantLimit()) {
+                long confirmedAfterSave = confirmedRequestsService.getConfirmedCount(eventId);
+                if (event.getParticipantLimit() > 0 && confirmedAfterSave >= event.getParticipantLimit()) {
                     rejectRemainingPending(eventId, rejected);
                     break;
                 }
@@ -148,7 +147,7 @@ public class RequestService {
             throw new NotFoundException("Request with id=" + requestId + " was not found");
         }
         if (request.getStatus() != RequestStatus.PENDING) {
-            throw new ForbiddenOperationException("Only pending requests can be canceled");
+            throw new ConflictException("Only pending requests can be canceled");
         }
         request.setStatus(RequestStatus.CANCELED);
         return RequestMapper.toDto(requestRepository.save(request));
@@ -165,6 +164,13 @@ public class RequestService {
             }
         }
         return requests;
+    }
+
+    private RequestStatus resolveInitialRequestStatus(Event event) {
+        if (Boolean.FALSE.equals(event.getRequestModeration()) || event.getParticipantLimit() == 0) {
+            return RequestStatus.CONFIRMED;
+        }
+        return RequestStatus.PENDING;
     }
 
     private void rejectRemainingPending(Long eventId, List<ParticipationRequestDto> rejected) {

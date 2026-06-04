@@ -27,7 +27,15 @@ public final class DateTimeUtil {
     }
 
     public static void validateEventDateForUser(LocalDateTime eventDate) {
+        validateEventDateNotInPast(eventDate);
         if (eventDate.isBefore(LocalDateTime.now().plusHours(2))) {
+            throw new BadRequestException(
+                    "Field: eventDate. Error: должно содержать дату, которая еще не наступила. Value: " + eventDate);
+        }
+    }
+
+    public static void validateEventDateNotInPast(LocalDateTime eventDate) {
+        if (!eventDate.isAfter(LocalDateTime.now())) {
             throw new BadRequestException(
                     "Field: eventDate. Error: должно содержать дату, которая еще не наступила. Value: " + eventDate);
         }
