@@ -147,7 +147,7 @@ public class EventService {
         return EventMapper.toFullDto(
                 event,
                 confirmedRequestsService.getConfirmedCount(eventId),
-                statsService.getView(eventId));
+                Math.max(statsService.getView(eventId), 1L));
     }
 
     public Event getPublishedEventOrThrow(Long eventId) {
