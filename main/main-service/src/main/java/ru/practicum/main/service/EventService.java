@@ -144,7 +144,10 @@ public class EventService {
         Event event = eventRepository.findById(eventId)
                 .filter(e -> e.getState() == EventState.PUBLISHED)
                 .orElseThrow(() -> new NotFoundException("Event with id=" + eventId + " was not found"));
-        return toFullDto(event);
+        return EventMapper.toFullDto(
+                event,
+                confirmedRequestsService.getConfirmedCount(eventId),
+                statsService.getViewsAfterHit(eventId));
     }
 
     public Event getPublishedEventOrThrow(Long eventId) {

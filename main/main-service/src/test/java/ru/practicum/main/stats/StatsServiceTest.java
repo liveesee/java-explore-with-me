@@ -56,4 +56,13 @@ class StatsServiceTest {
         statsService.hit("/events");
         verify(statsClient).hit(any(EndpointHitDto.class));
     }
+
+    @Test
+    void getViewsAfterHit_returnsHitsFromStats() {
+        ViewStatsDto stat = ViewStatsDto.builder().uri("/events/5").hits(3L).build();
+        when(statsClient.getStats(any(), any(), anyList(), eq(true))).thenReturn(List.of(stat));
+
+        assertEquals(3L, statsService.getViewsAfterHit(5L));
+        verify(statsClient).hit(any(EndpointHitDto.class));
+    }
 }

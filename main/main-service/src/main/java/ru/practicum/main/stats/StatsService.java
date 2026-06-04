@@ -30,16 +30,7 @@ public class StatsService {
     private final StatsClient statsClient;
 
     public void hit(String uri) {
-        try {
-            statsClient.hit(EndpointHitDto.builder()
-                    .app(APP_NAME)
-                    .uri(uri)
-                    .ip(getClientIp())
-                    .timestamp(DateTimeUtil.format(LocalDateTime.now()))
-                    .build());
-        } catch (RestClientException exception) {
-            log.warn("Failed to save hit for uri={}", uri, exception);
-        }
+        hit(uri, LocalDateTime.now());
     }
 
     public Map<Long, Long> getViews(Collection<Long> eventIds) {
@@ -69,6 +60,40 @@ public class StatsService {
 
     public Long getView(Long eventId) {
         return getViews(List.of(eventId)).getOrDefault(eventId, 0L);
+    }
+
+    public Long getViewsAfterHit(Long eventId) {
+        String uri = "/events/" + eventId;
+        LocalDateTime timestamp = LocalDateTime.now();
+        hit(uri, timestamp);
+        return getViewForUri(uri, timestamp);
+    }
+
+    private void hit(String uri, LocalDateTime timestamp) {
+        try {
+            statsClient.hit(EndpointHitDto.builder()
+                    .app(APP_NAME)
+                    .uri(uri)
+                    .ip(getClientIp())
+                    .timestamp(DateTimeUtil.format(timestamp))
+                    .build());
+        } catch (RestClientException exception) {
+            log.warn("Failed to save hit for uri={}", uri, exception);
+        }
+    }
+
+    private Long getViewForUri(String uri, LocalDateTime hitTime) {
+        try {
+            List<ViewStatsDto> stats = statsClient.getStats(
+                    STATS_START, hitTime.plusSeconds(1), List.of(uri), true);
+            if (stats == null || stats.isEmpty()) {
+                return 0L;
+            }
+            return stats.get(0).getHits();
+        } catch (RestClientException exception) {
+            log.warn("Failed to get views for uri={}", uri, exception);
+            return 0L;
+        }
     }
 
     private String getClientIp() {

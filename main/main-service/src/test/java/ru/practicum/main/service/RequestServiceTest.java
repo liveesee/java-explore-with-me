@@ -73,14 +73,14 @@ class RequestServiceTest {
     }
 
     @Test
-    void changeRequestStatus_nonPendingRequest_throwsBadRequest() {
+    void changeRequestStatus_nonPendingRequest_throwsConflict() {
         Event event = event(10, true);
         ParticipationRequest request = pendingRequest(event);
         request.setStatus(RequestStatus.CONFIRMED);
         when(eventService.getUserEventOrThrow(10L, 1L)).thenReturn(event);
         when(requestRepository.findAllById(List.of(100L))).thenReturn(List.of(request));
 
-        assertThrows(BadRequestException.class, () -> requestService.changeRequestStatus(
+        assertThrows(ConflictException.class, () -> requestService.changeRequestStatus(
                 10L, 1L, updateRequest("CONFIRMED", List.of(100L))));
     }
 

@@ -118,7 +118,7 @@ public class RequestService {
                 }
             }
             if (request.getStatus() != RequestStatus.PENDING) {
-                throw new BadRequestException("Request must have status PENDING");
+                throw new ConflictException("Request must have status PENDING");
             }
             if (newStatus == RequestStatus.CONFIRMED) {
                 request.setStatus(RequestStatus.CONFIRMED);

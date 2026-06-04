@@ -41,9 +41,8 @@ class PublicEventControllerTest {
     }
 
     @Test
-    void getEvent_returnsEventAndRecordsHit() throws Exception {
+    void getEvent_returnsEvent() throws Exception {
         when(eventService.getPublicEvent(1L)).thenReturn(EventFullDto.builder().id(1L).title("Event").build());
-        doNothing().when(statsService).hit("/events/1");
 
         mockMvc.perform(get("/events/1"))
                 .andExpect(status().isOk())
