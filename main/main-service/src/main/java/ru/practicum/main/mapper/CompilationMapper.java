@@ -14,13 +14,12 @@ public final class CompilationMapper {
     }
 
     public static CompilationDto toDto(Compilation compilation, Map<Long, Long> confirmedRequests,
-                                       Map<Long, Long> views, boolean publishedOnly) {
+                                       boolean publishedOnly) {
         Set<EventShortDto> events = compilation.getEvents().stream()
                 .filter(event -> !publishedOnly || event.getState() == EventState.PUBLISHED)
                 .map(event -> EventMapper.toShortDto(
                         event,
-                        confirmedRequests.getOrDefault(event.getId(), 0L),
-                        views.getOrDefault(event.getId(), 0L)))
+                        confirmedRequests.getOrDefault(event.getId(), 0L)))
                 .collect(Collectors.toSet());
         return CompilationDto.builder()
                 .id(compilation.getId())

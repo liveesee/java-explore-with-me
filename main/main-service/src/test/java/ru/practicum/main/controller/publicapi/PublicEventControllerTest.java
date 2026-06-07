@@ -8,8 +8,9 @@ import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.test.web.servlet.MockMvc;
 import ru.practicum.main.dto.EventFullDto;
 import ru.practicum.main.dto.EventShortDto;
+import ru.practicum.main.param.PublicEventSearchParams;
 import ru.practicum.main.service.EventService;
-import ru.practicum.main.stats.StatsService;
+import ru.practicum.stats.client.StatsClient;
 
 import java.util.List;
 
@@ -30,13 +31,13 @@ class PublicEventControllerTest {
     @MockBean
     private EventService eventService;
     @MockBean
-    private StatsService statsService;
+    private StatsClient statsClient;
 
     @Test
     void getEvents_returnsListAndRecordsHit() throws Exception {
-        when(eventService.getPublicEvents(null, null, null, null, null, false, null, 0, 10))
+        when(eventService.getPublicEvents(any(PublicEventSearchParams.class)))
                 .thenReturn(List.of(EventShortDto.builder().id(1L).title("Event").build()));
-        doNothing().when(statsService).hit(eq("/events"), any(HttpServletRequest.class));
+        doNothing().when(statsClient).hit(eq("/events"), any(HttpServletRequest.class));
 
         mockMvc.perform(get("/events"))
                 .andExpect(status().isOk())
@@ -46,7 +47,7 @@ class PublicEventControllerTest {
     @Test
     void getEvent_returnsEventAndRecordsHit() throws Exception {
         when(eventService.getPublicEvent(1L)).thenReturn(EventFullDto.builder().id(1L).title("Event").build());
-        doNothing().when(statsService).hit(eq("/events/1"), any(HttpServletRequest.class));
+        doNothing().when(statsClient).hit(eq("/events/1"), any(HttpServletRequest.class));
 
         mockMvc.perform(get("/events/1"))
                 .andExpect(status().isOk())

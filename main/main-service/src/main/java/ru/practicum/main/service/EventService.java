@@ -1,12 +1,14 @@
 package ru.practicum.main.service;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.client.RestClientException;
 import ru.practicum.main.dto.EventFullDto;
 import ru.practicum.main.dto.EventShortDto;
 import ru.practicum.main.dto.NewEventDto;
@@ -24,20 +26,25 @@ import ru.practicum.main.model.EventState;
 import ru.practicum.main.model.Location;
 import ru.practicum.main.model.User;
 import ru.practicum.main.model.UserStateAction;
+import ru.practicum.main.param.PublicEventSearchParams;
 import ru.practicum.main.repository.EventRepository;
 import ru.practicum.main.repository.EventSpecifications;
-import ru.practicum.main.stats.StatsService;
+import ru.practicum.stats.client.StatsClient;
+import ru.practicum.stats.dto.ViewStatsDto;
 import ru.practicum.main.util.DateTimeUtil;
 import ru.practicum.main.util.EnumUtil;
 import ru.practicum.main.util.PageUtil;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -45,7 +52,7 @@ public class EventService {
     private final EventRepository eventRepository;
     private final CategoryService categoryService;
     private final UserService userService;
-    private final StatsService statsService;
+    private final StatsClient statsClient;
     private final ConfirmedRequestsService confirmedRequestsService;
 
     @Transactional
@@ -118,26 +125,25 @@ public class EventService {
         return toFullDto(saved);
     }
 
-    public List<EventShortDto> getPublicEvents(String text, List<Long> categories, Boolean paid,
-                                               String rangeStart, String rangeEnd, Boolean onlyAvailable,
-                                               EventSort sort, int from, int size) {
-        LocalDateTime start = rangeStart != null ? DateTimeUtil.parse(rangeStart) : null;
-        LocalDateTime end = rangeEnd != null ? DateTimeUtil.parse(rangeEnd) : null;
+    public List<EventShortDto> getPublicEvents(PublicEventSearchParams params) {
+        LocalDateTime start = params.getRangeStart() != null ? DateTimeUtil.parse(params.getRangeStart()) : null;
+        LocalDateTime end = params.getRangeEnd() != null ? DateTimeUtil.parse(params.getRangeEnd()) : null;
         if (start != null && end != null && start.isAfter(end)) {
             throw new BadRequestException("Range end must be after range start");
         }
-        Specification<Event> spec = EventSpecifications.publicFilter(text, categories, paid, start, end, onlyAvailable);
+        Specification<Event> spec = EventSpecifications.publicFilter(
+                params.getText(), params.getCategories(), params.getPaid(), start, end, params.isOnlyAvailable());
 
-        if (sort == EventSort.VIEWS) {
+        if (params.getSort() == EventSort.VIEWS) {
             List<Event> events = eventRepository.findAll(spec, Pageable.unpaged()).getContent();
-            List<EventShortDto> dtos = toShortDtoList(events);
+            List<EventShortDto> dtos = toPublicShortDtoList(events);
             dtos.sort(Comparator.comparing(EventShortDto::getViews).reversed());
-            return paginateList(dtos, from, size);
+            return paginateList(dtos, params.getFrom(), params.getSize());
         }
 
-        Pageable pageable = PageUtil.createPageable(from, size, Sort.by("eventDate").ascending());
+        Pageable pageable = PageUtil.createPageable(params.getFrom(), params.getSize(), Sort.by("eventDate").ascending());
         Page<Event> page = eventRepository.findAll(spec, pageable);
-        return toShortDtoList(page.getContent());
+        return toPublicShortDtoList(page.getContent());
     }
 
     public EventFullDto getPublicEvent(Long eventId) {
@@ -147,7 +153,7 @@ public class EventService {
         return EventMapper.toFullDto(
                 event,
                 confirmedRequestsService.getConfirmedCount(eventId),
-                Math.max(statsService.getView(eventId), 1L));
+                Math.max(getView(event), 1L));
     }
 
     public Event getPublishedEventOrThrow(Long eventId) {
@@ -262,7 +268,18 @@ public class EventService {
     private List<EventShortDto> toShortDtoList(List<Event> events) {
         List<Long> ids = events.stream().map(Event::getId).toList();
         Map<Long, Long> confirmed = confirmedRequestsService.getConfirmedCounts(ids);
-        Map<Long, Long> views = statsService.getViews(ids);
+        return events.stream()
+                .map(event -> EventMapper.toShortDto(
+                        event,
+                        confirmed.getOrDefault(event.getId(), 0L),
+                        0L))
+                .collect(Collectors.toCollection(ArrayList::new));
+    }
+
+    private List<EventShortDto> toPublicShortDtoList(List<Event> events) {
+        List<Long> ids = events.stream().map(Event::getId).toList();
+        Map<Long, Long> confirmed = confirmedRequestsService.getConfirmedCounts(ids);
+        Map<Long, Long> views = getViews(events);
         return events.stream()
                 .map(event -> EventMapper.toShortDto(
                         event,
@@ -275,8 +292,51 @@ public class EventService {
         return EventMapper.toFullDto(
                 event,
                 confirmedRequestsService.getConfirmedCount(event.getId()),
-                statsService.getView(event.getId())
+                0L
         );
+    }
+
+    private Map<Long, Long> getViews(List<Event> events) {
+        List<Event> publishedEvents = events.stream()
+                .filter(event -> event.getPublishedOn() != null)
+                .toList();
+        if (publishedEvents.isEmpty()) {
+            return Collections.emptyMap();
+        }
+        LocalDateTime start = publishedEvents.stream()
+                .map(Event::getPublishedOn)
+                .min(LocalDateTime::compareTo)
+                .orElseThrow();
+        List<String> uris = publishedEvents.stream()
+                .map(event -> "/events/" + event.getId())
+                .toList();
+        List<ViewStatsDto> stats;
+        try {
+            stats = statsClient.getStats(start, LocalDateTime.now(), uris, true);
+        } catch (RestClientException exception) {
+            log.warn("Failed to get views for events {}", uris, exception);
+            return Collections.emptyMap();
+        }
+        return mapViews(stats);
+    }
+
+    private long getView(Event event) {
+        if (event.getPublishedOn() == null) {
+            return 0L;
+        }
+        return getViews(List.of(event)).getOrDefault(event.getId(), 0L);
+    }
+
+    private Map<Long, Long> mapViews(List<ViewStatsDto> stats) {
+        if (stats == null || stats.isEmpty()) {
+            return Collections.emptyMap();
+        }
+        Map<Long, Long> views = new HashMap<>();
+        for (ViewStatsDto stat : stats) {
+            Long eventId = Long.parseLong(stat.getUri().substring("/events/".length()));
+            views.put(eventId, stat.getHits());
+        }
+        return views;
     }
 
     private Location toLocation(ru.practicum.main.dto.LocationDto dto) {

@@ -11,6 +11,10 @@ public final class EventMapper {
     private EventMapper() {
     }
 
+    public static EventShortDto toShortDto(Event event, Long confirmedRequests) {
+        return toShortDto(event, confirmedRequests, 0L);
+    }
+
     public static EventShortDto toShortDto(Event event, Long confirmedRequests, Long views) {
         return EventShortDto.builder()
                 .id(event.getId())

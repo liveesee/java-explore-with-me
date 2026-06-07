@@ -3,6 +3,7 @@ server:
 
 stats-server:
   url: ${STATS_SERVER_URL:http://stats-server:9090}
+  app-name: ${STATS_SERVER_APP_NAME:ewm-main-service}
 
 spring:
   datasource:

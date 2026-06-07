@@ -18,7 +18,6 @@ import ru.practicum.main.model.EventState;
 import ru.practicum.main.model.Location;
 import ru.practicum.main.model.User;
 import ru.practicum.main.repository.CompilationRepository;
-import ru.practicum.main.stats.StatsService;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -40,8 +39,6 @@ class CompilationServiceTest {
     private EventService eventService;
     @Mock
     private ConfirmedRequestsService confirmedRequestsService;
-    @Mock
-    private StatsService statsService;
 
     @InjectMocks
     private CompilationService compilationService;
@@ -52,7 +49,6 @@ class CompilationServiceTest {
         Compilation saved = Compilation.builder().id(1L).title("Best").pinned(true).events(Set.of()).build();
         when(compilationRepository.save(any())).thenReturn(saved);
         when(confirmedRequestsService.getConfirmedCounts(any())).thenReturn(Map.of());
-        when(statsService.getViews(any())).thenReturn(Map.of());
 
         assertEquals("Best", compilationService.create(dto).getTitle());
     }
@@ -82,9 +78,9 @@ class CompilationServiceTest {
         when(compilationRepository.findAll(any(Specification.class), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(compilation)));
         when(confirmedRequestsService.getConfirmedCounts(any())).thenReturn(Map.of());
-        when(statsService.getViews(any())).thenReturn(Map.of());
 
         assertEquals(1, compilationService.getAll(null, 0, 10).size());
+        verify(confirmedRequestsService).getConfirmedCounts(any());
     }
 
     @Test
@@ -103,7 +99,6 @@ class CompilationServiceTest {
         when(eventService.getEventsByIds(List.of(10L))).thenReturn(List.of(event));
         when(compilationRepository.save(compilation)).thenReturn(compilation);
         when(confirmedRequestsService.getConfirmedCounts(any())).thenReturn(Map.of());
-        when(statsService.getViews(any())).thenReturn(Map.of());
 
         assertEquals("New", compilationService.update(1L,
                 UpdateCompilationRequest.builder().title("New").events(Set.of(10L)).build()).getTitle());

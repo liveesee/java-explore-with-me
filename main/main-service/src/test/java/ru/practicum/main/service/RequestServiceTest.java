@@ -18,6 +18,7 @@ import ru.practicum.main.repository.EventRepository;
 import ru.practicum.main.repository.ParticipationRequestRepository;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -52,7 +53,12 @@ class RequestServiceTest {
         when(eventService.getUserEventOrThrow(10L, 1L)).thenReturn(event);
         when(requestRepository.findAllById(List.of(100L))).thenReturn(List.of(request));
         when(confirmedRequestsService.getConfirmedCount(1L)).thenReturn(0L);
-        when(requestRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(requestRepository.saveAll(any())).thenAnswer(invocation -> {
+            Iterable<ParticipationRequest> saved = invocation.getArgument(0);
+            List<ParticipationRequest> result = new ArrayList<>();
+            saved.forEach(result::add);
+            return result;
+        });
 
         EventRequestStatusUpdateResult result = requestService.changeRequestStatus(
                 10L, 1L, updateRequest("CONFIRMED", List.of(100L)));

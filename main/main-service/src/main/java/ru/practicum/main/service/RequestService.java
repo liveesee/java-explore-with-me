@@ -107,36 +107,10 @@ public class RequestService {
             throw new BadRequestException("Incorrectly made request.");
         }
         List<ParticipationRequest> requests = loadRequestsForEvent(eventId, requestIds);
-        List<ParticipationRequestDto> confirmed = new ArrayList<>();
-        List<ParticipationRequestDto> rejected = new ArrayList<>();
-
-        for (ParticipationRequest request : requests) {
-            if (newStatus == RequestStatus.CONFIRMED) {
-                long confirmedCount = confirmedRequestsService.getConfirmedCount(eventId);
-                if (event.getParticipantLimit() > 0 && confirmedCount >= event.getParticipantLimit()) {
-                    throw new ConflictException("The participant limit has been reached");
-                }
-            }
-            if (request.getStatus() != RequestStatus.PENDING) {
-                throw new ConflictException("Request must have status PENDING");
-            }
-            if (newStatus == RequestStatus.CONFIRMED) {
-                request.setStatus(RequestStatus.CONFIRMED);
-                confirmed.add(RequestMapper.toDto(requestRepository.save(request)));
-                long confirmedAfterSave = confirmedRequestsService.getConfirmedCount(eventId);
-                if (event.getParticipantLimit() > 0 && confirmedAfterSave >= event.getParticipantLimit()) {
-                    rejectRemainingPending(eventId, rejected);
-                    break;
-                }
-            } else if (newStatus == RequestStatus.REJECTED) {
-                request.setStatus(RequestStatus.REJECTED);
-                rejected.add(RequestMapper.toDto(requestRepository.save(request)));
-            }
+        if (newStatus == RequestStatus.REJECTED) {
+            return rejectRequests(requests);
         }
-        return EventRequestStatusUpdateResult.builder()
-                .confirmedRequests(confirmed)
-                .rejectedRequests(rejected)
-                .build();
+        return confirmRequests(event, eventId, requests);
     }
 
     @Transactional
@@ -173,11 +147,58 @@ public class RequestService {
         return RequestStatus.PENDING;
     }
 
+    private EventRequestStatusUpdateResult rejectRequests(List<ParticipationRequest> requests) {
+        for (ParticipationRequest request : requests) {
+            if (request.getStatus() != RequestStatus.PENDING) {
+                throw new ConflictException("Request must have status PENDING");
+            }
+            request.setStatus(RequestStatus.REJECTED);
+        }
+        List<ParticipationRequestDto> rejected = requestRepository.saveAll(requests).stream()
+                .map(RequestMapper::toDto)
+                .toList();
+        return EventRequestStatusUpdateResult.builder()
+                .confirmedRequests(List.of())
+                .rejectedRequests(rejected)
+                .build();
+    }
+
+    private EventRequestStatusUpdateResult confirmRequests(Event event, Long eventId,
+                                                           List<ParticipationRequest> requests) {
+        long confirmedCount = confirmedRequestsService.getConfirmedCount(eventId);
+        List<ParticipationRequest> toConfirm = new ArrayList<>();
+        for (ParticipationRequest request : requests) {
+            if (event.getParticipantLimit() > 0 && confirmedCount >= event.getParticipantLimit()) {
+                throw new ConflictException("The participant limit has been reached");
+            }
+            if (request.getStatus() != RequestStatus.PENDING) {
+                throw new ConflictException("Request must have status PENDING");
+            }
+            request.setStatus(RequestStatus.CONFIRMED);
+            toConfirm.add(request);
+            confirmedCount++;
+            if (event.getParticipantLimit() > 0 && confirmedCount >= event.getParticipantLimit()) {
+                break;
+            }
+        }
+        List<ParticipationRequestDto> confirmed = requestRepository.saveAll(toConfirm).stream()
+                .map(RequestMapper::toDto)
+                .toList();
+        List<ParticipationRequestDto> rejected = new ArrayList<>();
+        if (event.getParticipantLimit() > 0 && confirmedCount >= event.getParticipantLimit()) {
+            rejectRemainingPending(eventId, rejected);
+        }
+        return EventRequestStatusUpdateResult.builder()
+                .confirmedRequests(confirmed)
+                .rejectedRequests(rejected)
+                .build();
+    }
+
     private void rejectRemainingPending(Long eventId, List<ParticipationRequestDto> rejected) {
         List<ParticipationRequest> pending = requestRepository.findByEventIdAndStatus(eventId, RequestStatus.PENDING);
-        for (ParticipationRequest request : pending) {
-            request.setStatus(RequestStatus.REJECTED);
-            rejected.add(RequestMapper.toDto(requestRepository.save(request)));
-        }
+        pending.forEach(request -> request.setStatus(RequestStatus.REJECTED));
+        requestRepository.saveAll(pending).stream()
+                .map(RequestMapper::toDto)
+                .forEach(rejected::add);
     }
 }

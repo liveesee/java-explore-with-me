@@ -76,8 +76,8 @@ class MapperTest {
                 .pinned(true)
                 .events(Set.of(published, pending))
                 .build();
-        assertEquals(1, CompilationMapper.toDto(compilation, Map.of(), Map.of(), true).getEvents().size());
-        assertEquals(2, CompilationMapper.toDto(compilation, Map.of(), Map.of(), false).getEvents().size());
+        assertEquals(1, CompilationMapper.toDto(compilation, Map.of(), true).getEvents().size());
+        assertEquals(2, CompilationMapper.toDto(compilation, Map.of(), false).getEvents().size());
     }
 
     private Event buildEvent(EventState state) {

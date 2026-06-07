@@ -1,7 +1,6 @@
 package ru.practicum.main.service;
 
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
@@ -15,7 +14,6 @@ import ru.practicum.main.model.Compilation;
 import ru.practicum.main.model.Event;
 import ru.practicum.main.repository.CompilationRepository;
 import ru.practicum.main.repository.CompilationSpecifications;
-import ru.practicum.main.stats.StatsService;
 import ru.practicum.main.util.PageUtil;
 
 import java.util.HashSet;
@@ -30,7 +28,6 @@ public class CompilationService {
     private final CompilationRepository compilationRepository;
     private final EventService eventService;
     private final ConfirmedRequestsService confirmedRequestsService;
-    private final StatsService statsService;
 
     @Transactional
     public CompilationDto create(NewCompilationDto dto) {
@@ -39,7 +36,7 @@ public class CompilationService {
                 .pinned(dto.getPinned() != null ? dto.getPinned() : false)
                 .events(resolveEvents(dto.getEvents()))
                 .build();
-        return toDto(compilationRepository.save(compilation), false);
+        return toDto(compilationRepository.save(compilation), fetchConfirmedCounts(compilation), false);
     }
 
     @Transactional
@@ -62,15 +59,16 @@ public class CompilationService {
         if (dto.getEvents() != null) {
             compilation.setEvents(resolveEvents(dto.getEvents()));
         }
-        return toDto(compilationRepository.save(compilation), false);
+        return toDto(compilationRepository.save(compilation), fetchConfirmedCounts(compilation), false);
     }
 
     public List<CompilationDto> getAll(Boolean pinned, int from, int size) {
         Pageable pageable = PageUtil.createPageable(from, size);
         Specification<Compilation> spec = CompilationSpecifications.byPinned(pinned);
-        Page<Compilation> page = compilationRepository.findAll(spec, pageable);
-        return page.getContent().stream()
-                .map(compilation -> toDto(compilation, true))
+        List<Compilation> compilations = compilationRepository.findAll(spec, pageable).getContent();
+        Map<Long, Long> confirmed = fetchConfirmedCounts(compilations);
+        return compilations.stream()
+                .map(compilation -> toDto(compilation, confirmed, true))
                 .toList();
     }
 
@@ -79,7 +77,7 @@ public class CompilationService {
         if (compilation == null) {
             throw new NotFoundException("Compilation with id=" + compId + " was not found");
         }
-        return toDto(compilation, true);
+        return toDto(compilation, fetchConfirmedCounts(compilation), true);
     }
 
     private Compilation getCompilationOrThrow(Long compId) {
@@ -99,10 +97,20 @@ public class CompilationService {
         return new HashSet<>(events);
     }
 
-    private CompilationDto toDto(Compilation compilation, boolean publishedOnly) {
-        List<Long> eventIds = compilation.getEvents().stream().map(Event::getId).toList();
-        Map<Long, Long> confirmed = confirmedRequestsService.getConfirmedCounts(eventIds);
-        Map<Long, Long> views = statsService.getViews(eventIds);
-        return CompilationMapper.toDto(compilation, confirmed, views, publishedOnly);
+    private CompilationDto toDto(Compilation compilation, Map<Long, Long> confirmed, boolean publishedOnly) {
+        return CompilationMapper.toDto(compilation, confirmed, publishedOnly);
+    }
+
+    private Map<Long, Long> fetchConfirmedCounts(Compilation compilation) {
+        return fetchConfirmedCounts(List.of(compilation));
+    }
+
+    private Map<Long, Long> fetchConfirmedCounts(List<Compilation> compilations) {
+        List<Long> eventIds = compilations.stream()
+                .flatMap(compilation -> compilation.getEvents().stream())
+                .map(Event::getId)
+                .distinct()
+                .toList();
+        return confirmedRequestsService.getConfirmedCounts(eventIds);
     }
 }

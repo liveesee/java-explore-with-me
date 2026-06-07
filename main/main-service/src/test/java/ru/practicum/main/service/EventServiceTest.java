@@ -22,8 +22,10 @@ import ru.practicum.main.model.EventState;
 import ru.practicum.main.model.Location;
 import ru.practicum.main.model.User;
 import ru.practicum.main.model.UserStateAction;
+import ru.practicum.main.param.PublicEventSearchParams;
 import ru.practicum.main.repository.EventRepository;
-import ru.practicum.main.stats.StatsService;
+import ru.practicum.stats.client.StatsClient;
+import ru.practicum.stats.dto.ViewStatsDto;
 import ru.practicum.main.util.DateTimeUtil;
 
 import java.time.LocalDateTime;
@@ -35,6 +37,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -47,7 +51,7 @@ class EventServiceTest {
     @Mock
     private UserService userService;
     @Mock
-    private StatsService statsService;
+    private StatsClient statsClient;
     @Mock
     private ConfirmedRequestsService confirmedRequestsService;
 
@@ -91,7 +95,6 @@ class EventServiceTest {
         when(eventRepository.findById(10L)).thenReturn(Optional.of(event));
         when(eventRepository.save(event)).thenReturn(event);
         when(confirmedRequestsService.getConfirmedCount(10L)).thenReturn(0L);
-        when(statsService.getView(10L)).thenReturn(0L);
 
         assertEquals("CANCELED", eventService.updateUserEvent(1L, 10L,
                 UpdateEventUserRequest.builder().stateAction(UserStateAction.CANCEL_REVIEW.name()).build())
@@ -104,7 +107,6 @@ class EventServiceTest {
         when(eventRepository.findById(10L)).thenReturn(Optional.of(event));
         when(eventRepository.save(event)).thenReturn(event);
         when(confirmedRequestsService.getConfirmedCount(10L)).thenReturn(0L);
-        when(statsService.getView(10L)).thenReturn(0L);
 
         assertEquals("PUBLISHED", eventService.updateAdminEvent(10L,
                 UpdateEventAdminRequest.builder().stateAction(AdminStateAction.PUBLISH_EVENT.name()).build())
@@ -153,10 +155,14 @@ class EventServiceTest {
         when(eventRepository.findAll(any(Specification.class), eq(Pageable.unpaged())))
                 .thenReturn(new PageImpl<>(List.of(lowViews, highViews)));
         when(confirmedRequestsService.getConfirmedCounts(any())).thenReturn(Map.of());
-        when(statsService.getViews(any())).thenReturn(Map.of(1L, 1L, 2L, 100L));
+        when(statsClient.getStats(any(), any(), any(), eq(true)))
+                .thenReturn(List.of(
+                        ViewStatsDto.builder().uri("/events/1").hits(1L).build(),
+                        ViewStatsDto.builder().uri("/events/2").hits(100L).build()));
 
-        var result = eventService.getPublicEvents(null, null, null, null, null, false,
-                EventSort.VIEWS, 0, 10);
+        var result = eventService.getPublicEvents(PublicEventSearchParams.builder()
+                .sort(EventSort.VIEWS)
+                .build());
         assertEquals(2L, result.get(0).getId());
     }
 
@@ -167,9 +173,9 @@ class EventServiceTest {
         when(eventRepository.findAll(any(Specification.class), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(event)));
         when(confirmedRequestsService.getConfirmedCounts(any())).thenReturn(Map.of());
-        when(statsService.getViews(any())).thenReturn(Map.of());
 
         assertEquals(1, eventService.getUserEvents(1L, 0, 10).size());
+        verify(statsClient, never()).getStats(any(), any(), any(), eq(true));
     }
 
     @Test

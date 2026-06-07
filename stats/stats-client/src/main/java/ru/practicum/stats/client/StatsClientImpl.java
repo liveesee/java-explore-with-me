@@ -1,5 +1,6 @@
 package ru.practicum.stats.client;
 
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpEntity;
@@ -12,6 +13,7 @@ import ru.practicum.stats.dto.EndpointHitDto;
 import ru.practicum.stats.dto.StatsRequestDto;
 import ru.practicum.stats.dto.ViewStatsDto;
 
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 
@@ -21,6 +23,7 @@ public class StatsClientImpl implements StatsClient {
 
     private final RestTemplate restTemplate;
     private final String serverUrl;
+    private final String appName;
 
     @Override
     public void hit(EndpointHitDto endpointHitDto) {
@@ -31,6 +34,21 @@ public class StatsClientImpl implements StatsClient {
                 new HttpEntity<>(endpointHitDto, headers),
                 Void.class
         );
+    }
+
+    @Override
+    public void hit(String uri, String ip) {
+        hit(EndpointHitDto.builder()
+                .app(appName)
+                .uri(uri)
+                .ip(ip)
+                .timestamp(FORMATTER.format(LocalDateTime.now()))
+                .build());
+    }
+
+    @Override
+    public void hit(String uri, HttpServletRequest request) {
+        hit(uri, resolveIp(request));
     }
 
     @Override
@@ -57,5 +75,20 @@ public class StatsClientImpl implements StatsClient {
             }
         }
         return builder.encode().build().toUriString();
+    }
+
+    private static String resolveIp(HttpServletRequest request) {
+        if (request == null) {
+            return "127.0.0.1";
+        }
+        String forwarded = request.getHeader("X-Forwarded-For");
+        if (forwarded != null && !forwarded.isBlank()) {
+            return forwarded.split(",")[0].trim();
+        }
+        String realIp = request.getHeader("X-Real-IP");
+        if (realIp != null && !realIp.isBlank()) {
+            return realIp.trim();
+        }
+        return request.getRemoteAddr();
     }
 }
