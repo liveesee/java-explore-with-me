@@ -1,5 +1,6 @@
 package ru.practicum.stats.client;
 
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpEntity;
@@ -7,12 +8,12 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.util.UriComponentsBuilder;
 import ru.practicum.stats.dto.EndpointHitDto;
 import ru.practicum.stats.dto.StatsRequestDto;
 import ru.practicum.stats.dto.ViewStatsDto;
 
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 
@@ -22,6 +23,7 @@ public class StatsClientImpl implements StatsClient {
 
     private final RestTemplate restTemplate;
     private final String serverUrl;
+    private final String appName;
 
     @Override
     public void hit(EndpointHitDto endpointHitDto) {
@@ -32,6 +34,21 @@ public class StatsClientImpl implements StatsClient {
                 new HttpEntity<>(endpointHitDto, headers),
                 Void.class
         );
+    }
+
+    @Override
+    public void hit(String uri, String ip) {
+        hit(EndpointHitDto.builder()
+                .app(appName)
+                .uri(uri)
+                .ip(ip)
+                .timestamp(FORMATTER.format(LocalDateTime.now()))
+                .build());
+    }
+
+    @Override
+    public void hit(String uri, HttpServletRequest request) {
+        hit(uri, resolveIp(request));
     }
 
     @Override
@@ -47,20 +64,31 @@ public class StatsClientImpl implements StatsClient {
     }
 
     private String buildStatsUrl(StatsRequestDto request) {
-        StringBuilder url = new StringBuilder(serverUrl);
-        url.append("/stats?start=").append(encode(FORMATTER.format(request.getStart())));
-        url.append("&end=").append(encode(FORMATTER.format(request.getEnd())));
+        UriComponentsBuilder builder = UriComponentsBuilder.fromHttpUrl(serverUrl + "/stats")
+                .queryParam("start", FORMATTER.format(request.getStart()))
+                .queryParam("end", FORMATTER.format(request.getEnd()))
+                .queryParam("unique", request.isUnique());
         List<String> uris = request.getUris();
         if (uris != null) {
             for (String uri : uris) {
-                url.append("&uris=").append(encode(uri));
+                builder.queryParam("uris", uri);
             }
         }
-        url.append("&unique=").append(request.isUnique());
-        return url.toString();
+        return builder.encode().build().toUriString();
     }
 
-    private String encode(String value) {
-        return URLEncoder.encode(value, StandardCharsets.UTF_8);
+    private static String resolveIp(HttpServletRequest request) {
+        if (request == null) {
+            return "127.0.0.1";
+        }
+        String forwarded = request.getHeader("X-Forwarded-For");
+        if (forwarded != null && !forwarded.isBlank()) {
+            return forwarded.split(",")[0].trim();
+        }
+        String realIp = request.getHeader("X-Real-IP");
+        if (realIp != null && !realIp.isBlank()) {
+            return realIp.trim();
+        }
+        return request.getRemoteAddr();
     }
 }

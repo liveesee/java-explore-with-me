@@ -7,6 +7,7 @@ COPY main main
 RUN mvn -B -pl stats/stats-service -am package -DskipTests
 
 FROM amazoncorretto:21-alpine
+RUN apk add --no-cache wget
 WORKDIR /app
 COPY --from=build /app/stats/stats-service/target/stats-service-*.jar app.jar
 ENTRYPOINT ["java", "-jar", "app.jar"]

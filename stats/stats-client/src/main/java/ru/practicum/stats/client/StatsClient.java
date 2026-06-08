@@ -1,5 +1,6 @@
 package ru.practicum.stats.client;
 
+import jakarta.servlet.http.HttpServletRequest;
 import ru.practicum.stats.dto.EndpointHitDto;
 import ru.practicum.stats.dto.StatsRequestDto;
 import ru.practicum.stats.dto.ViewStatsDto;
@@ -9,6 +10,10 @@ import java.util.List;
 
 public interface StatsClient {
     void hit(EndpointHitDto endpointHitDto);
+
+    void hit(String uri, String ip);
+
+    void hit(String uri, HttpServletRequest request);
 
     List<ViewStatsDto> getStats(StatsRequestDto request);
 

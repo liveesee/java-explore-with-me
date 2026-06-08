@@ -37,12 +37,12 @@ public class StatsController {
                                        @RequestParam String end,
                                        @RequestParam(required = false) List<String> uris,
                                        @RequestParam(defaultValue = "false") boolean unique) {
-        return statsService.getStats(
-                parseDateTime(start),
-                parseDateTime(end),
-                uris,
-                unique
-        );
+        LocalDateTime startDate = parseDateTime(start);
+        LocalDateTime endDate = parseDateTime(end);
+        if (startDate.isAfter(endDate)) {
+            throw new BadRequestException("Start date must be before end date");
+        }
+        return statsService.getStats(startDate, endDate, uris, unique);
     }
 
     private LocalDateTime parseDateTime(String dateTime) {

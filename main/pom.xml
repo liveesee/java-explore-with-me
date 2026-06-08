@@ -7,12 +7,14 @@
         <groupId>ru.practicum</groupId>
         <artifactId>explore-with-me</artifactId>
         <version>0.0.1-SNAPSHOT</version>
+        <relativePath>../pom.xml</relativePath>
     </parent>
 
     <artifactId>main</artifactId>
     <packaging>pom</packaging>
 
     <modules>
+        <module>main-dto</module>
         <module>main-service</module>
     </modules>
 

@@ -1,6 +1,15 @@
 server:
   port: 9090
 
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never
+
 spring:
   datasource:
     url: jdbc:postgresql://stats-db:5432/stats

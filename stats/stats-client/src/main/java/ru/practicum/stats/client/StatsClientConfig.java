@@ -16,7 +16,8 @@ public class StatsClientConfig {
 
     @Bean
     public StatsClient statsClient(RestTemplate restTemplate,
-                                   @Value("${stats-server.url}") String serverUrl) {
-        return new StatsClientImpl(restTemplate, serverUrl);
+                                   @Value("${stats-server.url}") String serverUrl,
+                                   @Value("${stats-server.app-name}") String appName) {
+        return new StatsClientImpl(restTemplate, serverUrl, appName);
     }
 }
