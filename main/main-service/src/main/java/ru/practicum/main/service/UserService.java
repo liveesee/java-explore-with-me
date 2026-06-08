@@ -10,6 +10,7 @@ import ru.practicum.main.exception.ConflictException;
 import ru.practicum.main.exception.NotFoundException;
 import ru.practicum.main.mapper.UserMapper;
 import ru.practicum.main.model.User;
+import ru.practicum.main.repository.CommentRepository;
 import ru.practicum.main.repository.EventRepository;
 import ru.practicum.main.repository.ParticipationRequestRepository;
 import ru.practicum.main.repository.UserRepository;
@@ -24,6 +25,7 @@ public class UserService {
     private final UserRepository userRepository;
     private final EventRepository eventRepository;
     private final ParticipationRequestRepository requestRepository;
+    private final CommentRepository commentRepository;
 
     @Transactional
     public UserDto create(NewUserRequest request) {
@@ -47,7 +49,8 @@ public class UserService {
         if (!userRepository.existsById(userId)) {
             throw new NotFoundException("User with id=" + userId + " was not found");
         }
-        if (eventRepository.existsByInitiatorId(userId) || requestRepository.existsByRequesterId(userId)) {
+        if (eventRepository.existsByInitiatorId(userId) || requestRepository.existsByRequesterId(userId)
+                || commentRepository.existsByAuthorId(userId)) {
             throw new ConflictException("The user cannot be removed");
         }
         userRepository.deleteById(userId);
