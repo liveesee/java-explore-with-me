@@ -7,8 +7,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
-import ru.practicum.main.dto.NewCommentDto;
-import ru.practicum.main.dto.UpdateCommentDto;
+import ru.practicum.main.dto.CommentRequestDto;
 import ru.practicum.main.exception.ConflictException;
 import ru.practicum.main.exception.NotFoundException;
 import ru.practicum.main.model.Comment;
@@ -51,7 +50,7 @@ class CommentServiceTest {
         when(eventRepository.findById(10L)).thenReturn(Optional.of(event));
 
         assertThrows(ConflictException.class, () -> commentService.create(1L, 10L,
-                NewCommentDto.builder().text("comment").build()));
+                CommentRequestDto.builder().text("comment").build()));
         verify(commentRepository, never()).save(any());
     }
 
@@ -62,7 +61,7 @@ class CommentServiceTest {
         when(eventRepository.findById(10L)).thenReturn(Optional.empty());
 
         assertThrows(NotFoundException.class, () -> commentService.create(1L, 10L,
-                NewCommentDto.builder().text("comment").build()));
+                CommentRequestDto.builder().text("comment").build()));
     }
 
     @Test
@@ -79,7 +78,7 @@ class CommentServiceTest {
         when(commentRepository.findById(100L)).thenReturn(Optional.of(comment));
 
         assertThrows(ConflictException.class, () -> commentService.update(2L, 100L,
-                UpdateCommentDto.builder().text("new").build()));
+                CommentRequestDto.builder().text("new").build()));
     }
 
     @Test

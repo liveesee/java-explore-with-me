@@ -3,6 +3,7 @@ package ru.practicum.main.mapper;
 import org.junit.jupiter.api.Test;
 import ru.practicum.main.dto.NewCategoryDto;
 import ru.practicum.main.model.Category;
+import ru.practicum.main.model.Comment;
 import ru.practicum.main.model.Compilation;
 import ru.practicum.main.model.Event;
 import ru.practicum.main.model.EventState;
@@ -41,8 +42,23 @@ class MapperTest {
     void eventMapper_mapsEventWithStats() {
         Event event = buildEvent(EventState.PUBLISHED);
         assertEquals(5L, EventMapper.toShortDto(event, 3L, 5L).getViews());
+        assertEquals(2L, EventMapper.toShortDto(event, 3L, 5L, 2L).getComments());
         assertEquals("PUBLISHED", EventMapper.toFullDto(event, 3L, null).getState());
+        assertEquals(4L, EventMapper.toFullDto(event, 3L, null, 4L).getComments());
         assertNull(EventMapper.toLocationDto(Event.builder().id(1L).build()));
+    }
+
+    @Test
+    void commentMapper_mapsEntityAndUpdate() {
+        Event event = buildEvent(EventState.PUBLISHED);
+        Comment comment = CommentMapper.toEntity("text", user, event);
+        assertEquals("text", comment.getText());
+        assertEquals(user, comment.getAuthor());
+        assertEquals(event, comment.getEvent());
+
+        CommentMapper.applyUpdate(comment, "updated");
+        assertEquals("updated", comment.getText());
+        assertEquals("updated", CommentMapper.toDto(comment).getText());
     }
 
     @Test

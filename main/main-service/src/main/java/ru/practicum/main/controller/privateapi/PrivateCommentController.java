@@ -13,8 +13,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import ru.practicum.main.dto.CommentDto;
-import ru.practicum.main.dto.NewCommentDto;
-import ru.practicum.main.dto.UpdateCommentDto;
+import ru.practicum.main.dto.CommentRequestDto;
 import ru.practicum.main.service.CommentService;
 
 import java.util.List;
@@ -28,14 +27,14 @@ public class PrivateCommentController {
     @ResponseStatus(HttpStatus.CREATED)
     public CommentDto create(@PathVariable Long userId,
                              @RequestParam Long eventId,
-                             @Valid @RequestBody NewCommentDto dto) {
+                             @Valid @RequestBody CommentRequestDto dto) {
         return commentService.create(userId, eventId, dto);
     }
 
     @PatchMapping("/users/{userId}/comments/{commentId}")
     public CommentDto update(@PathVariable Long userId,
                              @PathVariable Long commentId,
-                             @Valid @RequestBody UpdateCommentDto dto) {
+                             @Valid @RequestBody CommentRequestDto dto) {
         return commentService.update(userId, commentId, dto);
     }
 

@@ -8,8 +8,7 @@ import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import ru.practicum.main.dto.CommentDto;
-import ru.practicum.main.dto.NewCommentDto;
-import ru.practicum.main.dto.UpdateCommentDto;
+import ru.practicum.main.dto.CommentRequestDto;
 import ru.practicum.main.dto.UserShortDto;
 import ru.practicum.main.service.CommentService;
 
@@ -52,7 +51,7 @@ class PrivateCommentControllerTest {
         mockMvc.perform(post("/users/1/comments")
                         .param("eventId", "10")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(NewCommentDto.builder().text("comment").build())))
+                        .content(objectMapper.writeValueAsString(CommentRequestDto.builder().text("comment").build())))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.id").value(1));
     }
@@ -70,7 +69,7 @@ class PrivateCommentControllerTest {
 
         mockMvc.perform(patch("/users/1/comments/1")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(UpdateCommentDto.builder().text("updated").build())))
+                        .content(objectMapper.writeValueAsString(CommentRequestDto.builder().text("updated").build())))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.text").value("updated"));
     }

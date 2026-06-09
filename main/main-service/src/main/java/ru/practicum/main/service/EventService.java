@@ -54,6 +54,7 @@ public class EventService {
     private final UserService userService;
     private final StatsClient statsClient;
     private final ConfirmedRequestsService confirmedRequestsService;
+    private final CommentCountService commentCountService;
 
     @Transactional
     public EventFullDto create(Long userId, NewEventDto dto) {
@@ -153,7 +154,8 @@ public class EventService {
         return EventMapper.toFullDto(
                 event,
                 confirmedRequestsService.getConfirmedCount(eventId),
-                Math.max(getView(event), 1L));
+                Math.max(getView(event), 1L),
+                commentCountService.getCommentCount(eventId));
     }
 
     public Event getPublishedEventOrThrow(Long eventId) {
@@ -280,11 +282,13 @@ public class EventService {
         List<Long> ids = events.stream().map(Event::getId).toList();
         Map<Long, Long> confirmed = confirmedRequestsService.getConfirmedCounts(ids);
         Map<Long, Long> views = getViews(events);
+        Map<Long, Long> comments = commentCountService.getCommentCounts(ids);
         return events.stream()
                 .map(event -> EventMapper.toShortDto(
                         event,
                         confirmed.getOrDefault(event.getId(), 0L),
-                        views.getOrDefault(event.getId(), 0L)))
+                        views.getOrDefault(event.getId(), 0L),
+                        comments.getOrDefault(event.getId(), 0L)))
                 .collect(Collectors.toCollection(ArrayList::new));
     }
 

@@ -6,8 +6,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import ru.practicum.main.dto.CommentDto;
-import ru.practicum.main.dto.NewCommentDto;
-import ru.practicum.main.dto.UpdateCommentDto;
+import ru.practicum.main.dto.CommentRequestDto;
 import ru.practicum.main.exception.ConflictException;
 import ru.practicum.main.exception.NotFoundException;
 import ru.practicum.main.mapper.CommentMapper;
@@ -19,7 +18,6 @@ import ru.practicum.main.repository.CommentRepository;
 import ru.practicum.main.repository.EventRepository;
 import ru.practicum.main.util.PageUtil;
 
-import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
@@ -33,27 +31,21 @@ public class CommentService {
     private final UserService userService;
 
     @Transactional
-    public CommentDto create(Long userId, Long eventId, NewCommentDto dto) {
+    public CommentDto create(Long userId, Long eventId, CommentRequestDto dto) {
         User author = userService.getUserOrThrow(userId);
         Event event = getEventOrThrow(eventId);
         if (event.getState() != EventState.PUBLISHED) {
             throw new ConflictException("Cannot comment on unpublished event");
         }
-        Comment comment = Comment.builder()
-                .text(dto.getText())
-                .created(LocalDateTime.now())
-                .author(author)
-                .event(event)
-                .build();
+        Comment comment = CommentMapper.toEntity(dto.getText(), author, event);
         return CommentMapper.toDto(commentRepository.save(comment));
     }
 
     @Transactional
-    public CommentDto update(Long userId, Long commentId, UpdateCommentDto dto) {
+    public CommentDto update(Long userId, Long commentId, CommentRequestDto dto) {
         Comment comment = getCommentOrThrow(commentId);
         checkAuthor(comment, userId);
-        comment.setText(dto.getText());
-        comment.setUpdated(LocalDateTime.now());
+        CommentMapper.applyUpdate(comment, dto.getText());
         return CommentMapper.toDto(commentRepository.save(comment));
     }
 

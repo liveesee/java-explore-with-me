@@ -54,6 +54,8 @@ class EventServiceTest {
     private StatsClient statsClient;
     @Mock
     private ConfirmedRequestsService confirmedRequestsService;
+    @Mock
+    private CommentCountService commentCountService;
 
     @InjectMocks
     private EventService eventService;
@@ -133,6 +135,18 @@ class EventServiceTest {
     }
 
     @Test
+    void getPublicEvent_returnsCommentsCount() {
+        Event event = buildEvent(10L, EventState.PUBLISHED, LocalDateTime.now());
+        when(eventRepository.findById(10L)).thenReturn(Optional.of(event));
+        when(confirmedRequestsService.getConfirmedCount(10L)).thenReturn(0L);
+        when(commentCountService.getCommentCount(10L)).thenReturn(3L);
+        when(statsClient.getStats(any(), any(), any(), eq(true)))
+                .thenReturn(List.of(ViewStatsDto.builder().uri("/events/10").hits(5L).build()));
+
+        assertEquals(3L, eventService.getPublicEvent(10L).getComments());
+    }
+
+    @Test
     void getPublicEvent_whenNotPublished_throwsNotFound() {
         Event event = buildEvent(10L, EventState.PENDING, null);
         when(eventRepository.findById(10L)).thenReturn(Optional.of(event));
@@ -155,6 +169,7 @@ class EventServiceTest {
         when(eventRepository.findAll(any(Specification.class), eq(Pageable.unpaged())))
                 .thenReturn(new PageImpl<>(List.of(lowViews, highViews)));
         when(confirmedRequestsService.getConfirmedCounts(any())).thenReturn(Map.of());
+        when(commentCountService.getCommentCounts(any())).thenReturn(Map.of());
         when(statsClient.getStats(any(), any(), any(), eq(true)))
                 .thenReturn(List.of(
                         ViewStatsDto.builder().uri("/events/1").hits(1L).build(),
